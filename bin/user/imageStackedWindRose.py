@@ -75,7 +75,7 @@ from weeplot.utilities import get_font_handle
 from weeutil.weeutil import accumulateLeaves, option_as_list, TimeSpan
 from weewx.units import Converter
 
-STACKED_WINDROSE_VERSION = '2.0.2'
+STACKED_WINDROSE_VERSION = '3.0.0'
 
 DEFAULT_PETAL_COLORS = ['lightblue', 'blue', 'midnightblue', 'forestgreen',
                         'limegreen', 'green', 'greenyellow']
@@ -184,9 +184,12 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
         ngen = 0
         # Loop over each time span class (day, week, month, etc.):
         for span in self.image_dict.sections:
+            print span
             # Now, loop over all plot names in this time span class:
             for plot in self.image_dict[span].sections:
+                print plot
                 # Accumulate all options from parent nodes:
+                print " %s %s" % (span, plot)
                 p_options = accumulateLeaves(self.image_dict[span][plot])
                 # Get end time for plot. In order try self.gen_ts, last known
                 # good archive time stamp and then current time
@@ -207,6 +210,69 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                     format = p_options['format']
                 else:
                     format = "png"
+                # Get plot style, options : rose, spiral, scatter
+                # Default to rose
+                if p_options.has_key('plot_type'):
+                    self.plot_type = p_options['plot_type']
+                else:
+                    self.plot_type = "rose"
+                print self.plot_type
+                # Get centre for spiral, options : oldest, newest
+                # Default to oldest
+                if p_options.has_key('centre'):
+                    self.centre = p_options['centre']
+                else:
+                    self.centre = "oldest"
+                # Get marker_style, options : dot, circle, cross, none
+                # Default to circle
+                if p_options.has_key('marker_style'):
+                    marker_style = p_options['marker_style']
+                else:
+                    marker_style = "circle"
+                # Get line_style, 
+                # options : straight, radial, none for spiral, default radial
+                # option : straight, radial, spoke, none for scatter, default none
+                # Default to radial
+                if p_options.has_key('line_style'):
+                    line_style = p_options['line_style']
+                else:
+                    if self.plot_type == "spiral" :
+                        line_style = "radial"
+                    else :
+                        line_style = "none"
+                # Get line_color, 
+                # options : speed, hex color
+                # options : age, hex color
+                # Default to speed
+                if p_options.has_key('line_color'):
+                    if p_options['line_color'] == 'speed':
+                        line_color = "speed"
+                    elif p_options['line_color'] == 'age':
+                        line_color = "age"
+                    else :
+                        line_color = int(p_options['line_color'],0)
+                else:
+                    if self.plot_type == "scatter" :
+                        line_color = "age"
+                    else :
+                        line_color = "speed"
+                # Get marker_color, options : speed, hex color
+                # Default to speed
+                if p_options.has_key('marker_color'):
+                    if p_options['marker_color'] == 'speed':
+                        marker_color = "speed"
+                    else :
+                        marker_color = int(p_options['marker_color'],0)
+                else:
+                    marker_color = "speed"
+                if p_options.has_key('oldest_color'):
+                    oldest_color = p_options['oldest_color']
+                else:
+                    oldest_color = "0xF7FAFF"
+                if p_options.has_key('newest_color'):
+                    newest_color = p_options['newest_color']
+                else:
+                    newest_color = "0x00368e"
                 # Get full file name and path for plot
                 img_file = os.path.join(image_root, '%s.%s' % (plot,
                                                                format))
@@ -270,7 +336,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                     maxSpeed = max(speed_vec[0])
                     # Set upper speed range for our plot, set to a multiple of
                     # 10 for a neater display
-                    maxSpeedRange = (int(maxSpeed / 10.0) + 1) * 10
+                    self.maxSpeedRange = (int(maxSpeed / 10.0) + 1) * 10
                     # Setup 2D list with speed range boundaries in speedList[0]
                     # petal colours in speedList[1]
                     speedList = [[0 for x in range(7)] for x in range(2)]
@@ -280,7 +346,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                     # speedList[0]
                     i = 1
                     while i < 7:
-                        speedList[0][i] = self.speedFactor[i] * maxSpeedRange
+                        speedList[0][i] = self.speedFactor[i] * self.maxSpeedRange
                         i += 1
                     # Setup 2D list for wind direction
                     # windBin[0] represents each of 16 compass directions
@@ -392,6 +458,8 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                     # plots diameter will be divisible by 22
                     self.roseMaxDiameter = min(int((self.image_height - 2 * self.plot_border - labelHeight / 2) / 22.0) * 22,
                                                int((self.image_width - (2 * self.plot_border + legendWidth)) / 22.0) * 22)
+                                               # TODO Alternatively set legend to false to keep common
+                                               # TODO Scatter has legendwidth removed in above 
                     if self.image_width > self.image_height:    # If wider than height
                         textWidth, textHeight = self.draw.textsize("W",
                                                                    font=self.plotFont)
@@ -407,49 +475,316 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                     # Setup windrose plot. Plot circles, range rings, range
                     # labels, N-S and E-W centre lines and compass pont labels
                     self.windRosePlotSetup()
-                    # Plot wind rose petals
-                    # Each petal is constructed from overlapping pieslices
-                    # starting from outside (biggest) and working in (smallest)
-                    a = 0   #start at 'North' windrose petal
-                    while a < len(windBin): #loop through each wind rose arm
-                        s = len(speedList[0]) - 1
-                        cumRadius = sum(windBin[a])
-                        if cumRadius > 0:
-                            armRadius = int((10 * self.roseMaxDiameter * sum(windBin[a])) / (11 * 2.0 * self.maxRingValue * samples))
-                            while s > 0:
-                                # Calc radius of current arm
-                                pieRadius = int(round(armRadius * cumRadius/sum(windBin[a]) + self.roseMaxDiameter / 22,0))
-                                # Set bound box for pie slice
-                                bbox = (self.originX-pieRadius,
-                                        self.originY-pieRadius,
-                                        self.originX+pieRadius,
-                                        self.originY+pieRadius)
-                                # Draw pie slice
-                                self.draw.pieslice(bbox,
-                                                   int(a * 22.5 - 90 - self.petal_width / 2),
-                                                   int(a * 22.5 - 90 + self.petal_width / 2),
-                                                   fill=speedList[1][s], outline='black')
-                                cumRadius -= windBin[a][s]
-                                s -= 1  # Move 'in' for next pieslice
-                        a += 1  # Next arm
-                    # Draw 'bullseye' to represent windSpeed=0 or calm
-                    # Produce the label
-                    label0 = str(int(round(100.0 * speedBin[0] / sum(speedBin), 0))) + '%'
-                    # Work out its size, particularly its width
-                    textWidth, textHeight = self.draw.textsize(label0,
-                                                               font=self.plotFont)
-                    # Size the bound box
-                    bbox = (int(self.originX - self.roseMaxDiameter / 22),
-                            int(self.originY - self.roseMaxDiameter / 22),
-                            int(self.originX + self.roseMaxDiameter / 22),
-                            int(self.originY + self.roseMaxDiameter / 22))
-                    self.draw.ellipse(bbox,
-                                      outline='black',
-                                      fill=speedList[1][0])   # Draw the circle
-                    self.draw.text((int(self.originX-textWidth / 2), int(self.originY - textHeight / 2)),
-                                   label0,
-                                   fill=self.plot_font_color,
-                                   font=self.plotFont)   # Display the value
+                    if self.plot_type == "spiral":
+                        #
+                        # Start of my spiral
+                        #
+                        # Loop through each sample
+                        self.roseRadius =  self.roseMaxDiameter / 2
+                        #print self.roseRadius
+                        #print samples
+                        for layer in range(2):
+                            lastx = self.originX
+                            lasty = self.originY
+                            lasta = int(0)
+                            lastr = int(0)
+                            for i in range(0, samples):
+                                # Calculate radius for this time sample
+                                # Note assumes equal time periods for each sample
+                                # samples is the number of observations
+                                # self.period is the time period in seconds, which we dont actually need
+                                if self.centre == "newest" : 
+                                    i2 = samples - 1 - i
+                                else :
+                                    # assume oldest
+                                    i2 = i
+                                self.radius = i2*self.roseRadius/(samples-1) # TODO trap sample = 0 or 1
+                                
+                                if (dir_vec[0][i] is None):
+                                    continue
+                                else:
+                                    thisa = int(dir_vec[0][i])
+                                    ##print "%d %f %f" % (i, self.radius, dir_vec[0][i])
+                                    self.y = self.radius*math.cos(math.radians(dir_vec[0][i]))
+                                    self.x = self.radius*math.sin(math.radians(dir_vec[0][i]))
+                                    if i == 0:
+                                        # this is the first sample so previous point must be set to this point
+                                        lastx = self.originX + self.x
+                                        lasty = self.originY - self.y
+                                        lasta = thisa
+                                        lastr = self.radius
+                                    # Size the bound box
+                                    point = (int(self.originX + self.x),
+                                            int(self.originY - self.y))
+                                    bbox = (int(self.originX + self.x-1),
+                                            int(self.originY - self.y-1),
+                                            int(self.originX + self.x+1),
+                                            int(self.originY - self.y+1))
+                                    horline = (int(self.originX + self.x-1),
+                                            int(self.originY - self.y),
+                                            int(self.originX + self.x+1),
+                                            int(self.originY - self.y))
+                                    verline = (int(self.originX + self.x),
+                                            int(self.originY - self.y-1),
+                                            int(self.originX + self.x),
+                                            int(self.originY - self.y+1))
+                                    vector = (int(lastx),
+                                            int(lasty),
+                                            int(self.originX + self.x),
+                                            int(self.originY - self.y))
+                                    
+                                    if layer == 1:
+                                        # Do Markers
+                                        # Decide if markers are line colour or marker colour
+                                        if marker_color == "speed" : 
+                                            # Makes lines function of speed
+                                            #print "  %f" % (speed_vec[0][i])
+                                            if (speed_vec[0][i] is None or speed_vec[0][i] == 0):
+                                                markercolor = speedList[1][0]
+                                            else :
+                                                lookup = 5
+                                                while lookup >= 0: # TODO Yuk, 7 colours is hard coded
+                                                    #print "    %d %f" % (lookup, speedList[0][lookup])
+                                                    if speed_vec[0][i] > speedList[0][lookup] :
+                                                        markercolor = speedList[1][lookup+1]
+                                                        break
+                                                    lookup -= 1
+                                            #print "  %f %s" % (speed_vec[0][i], markercolor)
+                                        else :
+                                            # Constant colour
+                                            markercolor = marker_color
+                                        if marker_style == "dot" :
+                                            self.draw.point(point, fill=markercolor)   # Draw the point
+                                        elif marker_style == "circle" :
+                                            self.draw.ellipse(bbox, outline=markercolor, fill=markercolor)   # Draw the circle
+                                        elif marker_style == "cross" :
+                                            self.draw.line(horline, fill=markercolor, width=1)   # Draw the cross
+                                            self.draw.line(verline, fill=markercolor, width=1)   # Draw the cross
+                                        else :
+                                            #none
+                                            pass
+                                    else:
+                                        # Layer 0, which is the lines between dots
+                                        if line_color == "speed" : 
+                                            # Makes lines function of speed
+                                            #print "  %f" % (speed_vec[0][i])
+                                            if (speed_vec[0][i] is None or speed_vec[0][i] == 0):
+                                                linecolor = speedList[1][0]
+                                            else :
+                                                lookup = 5
+                                                while lookup >= 0: # TODO Yuk, 7 colours is hard coded
+                                                    #print "    %d %f" % (lookup, speedList[0][lookup])
+                                                    if speed_vec[0][i] > speedList[0][lookup] :
+                                                        linecolor = speedList[1][lookup+1]
+                                                        break
+                                                    lookup -= 1
+                                            #print "  %f %s" % (speed_vec[0][i], linecolor)
+                                        else :
+                                            # Constant colour
+                                            linecolor = line_color
+                                        if line_style == "straight" :
+                                            self.draw.line(vector, fill=linecolor, width=1)
+                                        elif line_style == "radial" :
+                                            ##print "%d %d" % (thisa, lasta)
+                                            if (thisa - lasta)%360 <= 180 :
+                                                starta = lasta
+                                                enda = thisa
+                                                anglespan = (thisa - lasta)%360
+                                                dir = 1
+                                            else:
+                                                starta = thisa
+                                                enda = lasta
+                                                anglespan = (lasta - thisa)%360
+                                                dir = -1
+                                            a = 0
+                                            while a < anglespan:
+                                                pointr = lastr + (self.radius - lastr)*a/anglespan
+                                                pointx = int(self.originX + pointr*math.sin(math.radians(lasta+(a*dir))) )
+                                                pointy = int(self.originY - pointr*math.cos(math.radians(lasta+(a*dir))) )
+                                                ##print "  %d %f %d %d" % (a, pointr, pointx, pointy)
+                                                vector = (int(lastx), int(lasty), int(pointx), int(pointy))
+                                                self.draw.line(vector, fill=linecolor, width=1) # Straight line
+                                                #self.draw.point((pointx, pointy),fill=linecolor) # Not needed now we are doing lines
+                                                lastx = pointx
+                                                lasty = pointy
+                                                a += 1
+                                            # Draw the last line
+                                            vector = (int(lastx), int(lasty), int(self.originX + self.x), int(self.originY - self.y))
+                                            self.draw.line(vector, fill=linecolor, width=1) # Draw the final line to end point
+                                        else :
+                                            # assume line_style == "none"
+                                            pass
+                                        lastx = self.originX + self.x
+                                        lasty = self.originY - self.y
+                                        lasta = thisa
+                                        lastr = self.radius
+                        #
+                        # End of my spiral
+                        #
+                    elif self.plot_type == "scatter":
+                        #
+                        # Start of my scatter
+                        #
+                        # Loop through each sample
+                        print line_color
+                        oldestred = int(oldest_color[2:4],16)
+                        oldestgreen = int(oldest_color[4:6],16)
+                        oldestblue = int(oldest_color[6:8],16)
+                        newestred = int(newest_color[2:4],16)
+                        newestgreen = int(newest_color[4:6],16)
+                        newestblue = int(newest_color[6:8],16)
+                        self.roseRadius =  self.roseMaxDiameter / 2
+                        print self.roseRadius
+                        print samples
+                        print self.maxSpeedRange
+                        for layer in range(2):
+                            lastx = self.originX
+                            lasty = self.originY
+                            lasta = int(0)
+                            lastr = int(0)
+                            for i in range(0, samples):
+                                # Calculate radius for this time sample
+                                if (speed_vec[0][i] is None) or (dir_vec[0][i] is None):
+                                    continue
+                                else:
+                                    # Colour fade algorithm from https://stackoverflow.com/questions/21835739/smooth-color-transition-algorithm
+                                    p = i / float(samples-1)
+                                    r = int((1.0-p) * oldestred + p * newestred + 0.5)
+                                    g = int((1.0-p) * oldestgreen + p * newestgreen + 0.5)
+                                    b = int((1.0-p) * oldestblue + p * newestblue + 0.5)
+                                    col = '#%02x%02x%02x' % (r, g, b)
+                                    self.radius = (speed_vec[0][i]/self.maxSpeedRange)*self.roseRadius
+                                    #print "%d %s %f %f" % (i, col, self.radius, speed_vec[0][i])
+                                    self.y = self.radius*math.cos(math.radians(dir_vec[0][i]))
+                                    self.x = self.radius*math.sin(math.radians(dir_vec[0][i]))
+                                    # Size the bound box
+                                    point = (int(self.originX + self.x),
+                                            int(self.originY - self.y))
+                                    bbox = (int(self.originX + self.x-1),
+                                            int(self.originY - self.y-1),
+                                            int(self.originX + self.x+1),
+                                            int(self.originY - self.y+1))
+                                    horline = (int(self.originX + self.x-1),
+                                            int(self.originY - self.y),
+                                            int(self.originX + self.x+1),
+                                            int(self.originY - self.y))
+                                    verline = (int(self.originX + self.x),
+                                            int(self.originY - self.y-1),
+                                            int(self.originX + self.x),
+                                            int(self.originY - self.y+1))
+                                    vector = (int(lastx),
+                                            int(lasty),
+                                            int(self.originX + self.x),
+                                            int(self.originY - self.y))
+                                    spoke = (int(self.originX),
+                                            int(self.originY),
+                                            int(self.originX + self.x),
+                                            int(self.originY - self.y))
+                                    if layer == 1:
+                                        if marker_style == "dot" :
+                                            self.draw.point(point, fill=col)   # Draw the point
+                                        elif marker_style == "circle" :
+                                            self.draw.ellipse(bbox, outline=col, fill=col)   # Draw the circle
+                                        elif marker_style == "cross" :
+                                            self.draw.line(horline, fill=col, width=1)   # Draw the cross
+                                            self.draw.line(verline, fill=col, width=1)   # Draw the cross
+                                        else :
+                                            #none
+                                            pass
+                                    else:
+                                        # layer == 0 = background
+                                        if line_color == "age" :
+                                            linecolor = col
+                                        else :
+                                            linecolor = line_color
+                                        thisa = int(dir_vec[0][i])
+                                        # option : straight, radial, spoke, none for scatter
+                                        if line_style == "spoke" :
+                                            self.draw.line(spoke, fill=linecolor, width=1)
+                                        elif line_style == "straight" :
+                                            self.draw.line(vector, fill=linecolor, width=1)
+                                        elif line_style == "radial" :
+                                            ##print "%d %d" % (thisa, lasta)
+                                            if (thisa - lasta)%360 <= 180 :
+                                                starta = lasta
+                                                enda = thisa
+                                                anglespan = (thisa - lasta)%360
+                                                dir = 1
+                                            else:
+                                                starta = thisa
+                                                enda = lasta
+                                                anglespan = (lasta - thisa)%360
+                                                dir = -1
+                                            a = 0
+                                            while a < anglespan:
+                                                pointr = lastr + (self.radius - lastr)*a/anglespan
+                                                pointx = int(self.originX + pointr*math.sin(math.radians(lasta+(a*dir))) )
+                                                pointy = int(self.originY - pointr*math.cos(math.radians(lasta+(a*dir))) )
+                                                ##print "  %d %f %d %d" % (a, pointr, pointx, pointy)
+                                                vector = (int(lastx), int(lasty), int(pointx), int(pointy))
+                                                self.draw.line(vector, fill=linecolor, width=1) # Straight line
+                                                #self.draw.point((pointx, pointy),fill=linecolor) # Not needed now we are doing lines
+                                                lastx = pointx
+                                                lasty = pointy
+                                                a += 1
+                                            # Draw the last line
+                                            vector = (int(lastx), int(lasty), int(self.originX + self.x), int(self.originY - self.y))
+                                            self.draw.line(vector, fill=linecolor, width=1) # Draw the final line to end point
+                                        else :
+                                            # assume none
+                                            pass
+                                        lastx = self.originX + self.x
+                                        lasty = self.originY - self.y
+                                        lasta = thisa
+                                        lastr = self.radius
+                        #
+                        # End of my scatter
+                        #
+                    else :
+                        # Assume rose
+                        # Plot wind rose petals
+                        # Each petal is constructed from overlapping pieslices
+                        # starting from outside (biggest) and working in (smallest)
+                        a = 0   #start at 'North' windrose petal
+                        while a < len(windBin): #loop through each wind rose arm
+                            s = len(speedList[0]) - 1
+                            cumRadius = sum(windBin[a])
+                            if cumRadius > 0:
+                                armRadius = int((10 * self.roseMaxDiameter * sum(windBin[a])) / (11 * 2.0 * self.maxRingValue * samples))
+                                while s > 0:
+                                    # Calc radius of current arm
+                                    pieRadius = int(round(armRadius * cumRadius/sum(windBin[a]) + self.roseMaxDiameter / 22,0))
+                                    # Set bound box for pie slice
+                                    bbox = (self.originX-pieRadius,
+                                            self.originY-pieRadius,
+                                            self.originX+pieRadius,
+                                            self.originY+pieRadius)
+                                    # Draw pie slice
+                                    self.draw.pieslice(bbox,
+                                                       int(a * 22.5 - 90 - self.petal_width / 2),
+                                                       int(a * 22.5 - 90 + self.petal_width / 2),
+                                                       fill=speedList[1][s], outline='black')
+                                    cumRadius -= windBin[a][s]
+                                    s -= 1  # Move 'in' for next pieslice
+                            a += 1  # Next arm
+                        # Draw 'bullseye' to represent windSpeed=0 or calm
+                        # Produce the label
+                        label0 = str(int(round(100.0 * speedBin[0] / sum(speedBin), 0))) + '%'
+                        # Work out its size, particularly its width
+                        textWidth, textHeight = self.draw.textsize(label0,
+                                                                   font=self.plotFont)
+                        # Size the bound box
+                        bbox = (int(self.originX - self.roseMaxDiameter / 22),
+                                int(self.originY - self.roseMaxDiameter / 22),
+                                int(self.originX + self.roseMaxDiameter / 22),
+                                int(self.originY + self.roseMaxDiameter / 22))
+                        self.draw.ellipse(bbox,
+                                          outline='black',
+                                          fill=speedList[1][0])   # Draw the circle
+                        self.draw.text((int(self.originX-textWidth / 2), int(self.originY - textHeight / 2)),
+                                       label0,
+                                       fill=self.plot_font_color,
+                                       font=self.plotFont)   # Display the value
                     # Setup the legend. Draw label/title (if set), stacked bar,
                     # bar labels and units
                     self.legendSetup(speedList, speedBin)
@@ -517,11 +852,23 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                        fill=self.plot_font_color,
                        font=self.plotFont)
         # Draw % labels on rings
-        labelInc = self.maxRingValue / 5  # Value increment between rings
+        if self.plot_type == "scatter":
+            labelInc = self.maxSpeedRange / 5  # Value increment between rings
+        elif self.plot_type == "spiral":
+            labelInc = self.maxRingValue / 5  # Value increment between rings
+        else:
+            # assume rose
+            labelInc = self.maxRingValue / 5  # Value increment between rings
         speedLabels = list((0, 0, 0, 0, 0))   # List to hold ring labels
         i = 1
         while i < 6:
-            speedLabels[i - 1] = str(int(round(labelInc * i * 100, 0))) + '%'
+            if self.plot_type == "scatter":
+                speedLabels[i - 1] = str(int(round(labelInc * i, 0))) + 'km/h'
+            elif self.plot_type == "spiral":
+                speedLabels[i - 1] = str(int(round(labelInc * i * 100, 0))) + 'TODO'
+            else:
+                # assume rose
+                speedLabels[i - 1] = str(int(round(labelInc * i * 100, 0))) + '%'
             i += 1
         # Calculate location of ring labels
         labelAngle = 7 * math.pi / 4 + int(self.labelDir / 4.0) * math.pi / 2
@@ -530,7 +877,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
         # Draw ring labels. Note leave inner ring blank due to lack of space.
         # For clarity each label (except for outside ring) is drawn on a rectangle
         # with background colour set to that of the circular plot
-        i = 2
+        i = 1 #TODO Spiral has this as 2
         while i < 5:
             textWidth, textHeight = self.draw.textsize(speedLabels[i-1],
                                                        font=self.plotFont)
@@ -639,6 +986,32 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                     t_stampX = self.originX - tWidth / 2
                 else:
                     t_stampX = self.image_width - self.plot_border - tWidth
+            else:
+                t_stampY = self.image_height - self.plot_border - tHeight
+                t_stampX = self.image_width - self.plot_border - tWidth
+            self.draw.text((t_stampX, t_stampY), t_stamp_text,
+                           fill=self.legend_font_color,
+                           font=self.legendFont)
+        if self.plot_type == "spiral":
+            # Display Direction in spiral plots
+            if self.centre == "newest" :
+                t_stamp_text = "Newest in Center"
+            else :
+                t_stamp_text = "Oldest in Center"
+            tWidth, tHeight = self.draw.textsize(t_stamp_text, font=self.labelFont)
+            if self.t_stamp_loc != None:
+                if 'TOP' in self.t_stamp_loc:
+                    t_stampY = self.plot_border + tHeight
+                else:
+                    t_stampY = self.image_height-self.plot_border - tHeight
+                if 'LEFT' in self.t_stamp_loc:
+                    t_stampX = self.image_width - self.plot_border - tWidth
+                elif ('CENTER' in self.t_stamp_loc) or ('CENTRE' in self.t_stamp_loc):
+                    t_stampX = self.originX - tWidth / 2
+                    # TODO CANT DO THIS ONE
+                else:
+                    # Assume RIGHT
+                    t_stampX = self.plot_border
             else:
                 t_stampY = self.image_height - self.plot_border - tHeight
                 t_stampX = self.image_width - self.plot_border - tWidth
