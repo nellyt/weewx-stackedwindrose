@@ -282,6 +282,10 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                     newest_color = p_options['newest_color']
                 else:
                     newest_color = "0x00368e"
+                if p_options.has_key('axis_label'):
+                    axis_label = p_options['axis_label']
+                else:
+                    axis_label = "%H:%M"
                 # Get full file name and path for plot
                 img_file = os.path.join(image_root, '%s.%s' % (plot,
                                                                format))
@@ -481,11 +485,32 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                         self.originX = 2 * self.plot_border + self.roseMaxDiameter / 2
                         # y coord of windrose circle origin(0,0) is top left corner
                         self.originY = 2 * self.plot_border + self.roseMaxDiameter / 2
+                    
+                    if self.plot_type == "spiral":
+                        # Calculate which samples will fall on the circular axis marks
+                        self.timeLabels = list((0, 0, 0, 0, 0, 0))   # List to hold ring labels, 0=centre, 5=outside
+                        # self.timeLabels[0] = 0
+                        # self.timeLabels[1] = int(round((samples-1)*1/5))
+                        # self.timeLabels[2] = int(round((samples-1)*2/5))
+                        # self.timeLabels[3] = int(round((samples-1)*3/5))
+                        # self.timeLabels[4] = int(round((samples-1)*4/5))
+                        # self.timeLabels[5] = (samples-1)
+                        # print self.timeLabels
+                        self.timeLabels[0] = dt.fromtimestamp(time_vec_t_wd_stop[0][0]).strftime(axis_label).strip()
+                        self.timeLabels[1] = dt.fromtimestamp(time_vec_t_wd_stop[0][int(round((samples-1)*1/5))]).strftime(axis_label).strip()
+                        self.timeLabels[2] = dt.fromtimestamp(time_vec_t_wd_stop[0][int(round((samples-1)*2/5))]).strftime(axis_label).strip()
+                        self.timeLabels[3] = dt.fromtimestamp(time_vec_t_wd_stop[0][int(round((samples-1)*3/5))]).strftime(axis_label).strip()
+                        self.timeLabels[4] = dt.fromtimestamp(time_vec_t_wd_stop[0][int(round((samples-1)*4/5))]).strftime(axis_label).strip()
+                        self.timeLabels[5] = dt.fromtimestamp(time_vec_t_wd_stop[0][(samples-1)]).strftime(axis_label).strip()
+                        print samples
+                    
                     # Setup windrose plot. Plot circles, range rings, range
                     # labels, N-S and E-W centre lines and compass pont labels
                     self.windRosePlotSetup()
                     if self.plot_type == "spiral":
                         self.roseRadius =  self.roseMaxDiameter / 2
+                        print time_vec_t_wd_stop[0][0]
+                        print dt.fromtimestamp(time_vec_t_wd_stop[0][0]).strftime("%H:%M").strip()
                         #print self.roseRadius
                         #print samples
                         for layer in range(2):
@@ -505,6 +530,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                     # assume oldest
                                     i2 = i
                                 self.radius = i2*self.roseRadius/(samples-1) # TODO trap sample = 0 or 1
+                                # TODO actually radius should be a functio of time, this will then cope with nones/gaps and short set of samples
                                 
                                 if (dir_vec[0][i] is None):
                                     continue
@@ -809,7 +835,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
         """Draw circular plot background, rings, axes and labels."""
 
         # Draw speed circles
-        if self.plot_type == "scatter":
+        if self.plot_type == "scatter" or self.plot_type == "spiral":
             bbMinRad = self.roseMaxDiameter/10 # Calc distance between windrose
                                            # range rings. Note that 'calm'
                                            # bulleye is at centre of plot
@@ -865,6 +891,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
         if self.plot_type == "scatter":
             labelInc = self.maxSpeedRange / 5  # Value increment between rings
         elif self.plot_type == "spiral":
+            #TODO this needs to be time !!!!
             labelInc = self.maxRingValue / 5  # Value increment between rings
         else:
             # assume rose
@@ -875,14 +902,14 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
             if self.plot_type == "scatter":
                 speedLabels[i - 1] = str(int(round(labelInc * i, 0))) + 'km/h'
             elif self.plot_type == "spiral":
-                speedLabels[i - 1] = str(int(round(labelInc * i * 100, 0))) + 'TODO'
+                speedLabels[i - 1] = self.timeLabels[i]
             else:
                 # assume rose
                 speedLabels[i - 1] = str(int(round(labelInc * i * 100, 0))) + '%'
             i += 1
         # Calculate location of ring labels
         labelAngle = 7 * math.pi / 4 + int(self.labelDir / 4.0) * math.pi / 2
-        if self.plot_type == "scatter":
+        if self.plot_type == "scatter" or self.plot_type == "spiral":
             labelOffsetX = int(round(self.roseMaxDiameter / 20 * math.cos(labelAngle), 0))
             labelOffsetY = int(round(self.roseMaxDiameter / 20 * math.sin(labelAngle), 0))
         else:
