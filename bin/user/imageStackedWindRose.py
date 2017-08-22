@@ -75,7 +75,7 @@ from weeplot.utilities import get_font_handle
 from weeutil.weeutil import accumulateLeaves, option_as_list, TimeSpan
 from weewx.units import Converter
 
-STACKED_WINDROSE_VERSION = '3.0.0'
+STACKED_WINDROSE_VERSION = '3.0.0a'
 
 DEFAULT_PETAL_COLORS = ['lightblue', 'blue', 'midnightblue', 'forestgreen',
                         'limegreen', 'green', 'greenyellow']
@@ -184,10 +184,10 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
         ngen = 0
         # Loop over each time span class (day, week, month, etc.):
         for span in self.image_dict.sections:
-            print span
+            #print span
             # Now, loop over all plot names in this time span class:
             for plot in self.image_dict[span].sections:
-                print plot
+                #print plot
                 # Accumulate all options from parent nodes:
                 print " %s %s" % (span, plot)
                 p_options = accumulateLeaves(self.image_dict[span][plot])
@@ -487,7 +487,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                         self.originY = 2 * self.plot_border + self.roseMaxDiameter / 2
                     
                     if self.plot_type == "spiral":
-                        # Calculate which samples will fall on the circular axis marks
+                        # Calculate which samples will fall on the circular axis marks and extract their timestamps
                         self.timeLabels = list((0, 0, 0, 0, 0, 0))   # List to hold ring labels, 0=centre, 5=outside
                         self.timeLabels[0] = dt.fromtimestamp(time_vec_t_wd_stop[0][0]).strftime(axis_label).strip()
                         self.timeLabels[1] = dt.fromtimestamp(time_vec_t_wd_stop[0][int(round((samples-1)*1/5))]).strftime(axis_label).strip()
@@ -495,18 +495,12 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                         self.timeLabels[3] = dt.fromtimestamp(time_vec_t_wd_stop[0][int(round((samples-1)*3/5))]).strftime(axis_label).strip()
                         self.timeLabels[4] = dt.fromtimestamp(time_vec_t_wd_stop[0][int(round((samples-1)*4/5))]).strftime(axis_label).strip()
                         self.timeLabels[5] = dt.fromtimestamp(time_vec_t_wd_stop[0][(samples-1)]).strftime(axis_label).strip()
-                        print samples
-                    
+
                     # Setup windrose plot. Plot circles, range rings, range
                     # labels, N-S and E-W centre lines and compass pont labels
                     self.windRosePlotSetup()
                     if self.plot_type == "spiral":
                         self.roseRadius =  self.roseMaxDiameter / 2
-                        print self.roseRadius
-                        print time_vec_t_wd_stop[0][0]
-                        print dt.fromtimestamp(time_vec_t_wd_stop[0][0]).strftime("%H:%M").strip()
-                        #print self.roseRadius
-                        #print samples
                         for layer in range(2):
                             lastx = self.originX
                             lasty = self.originY
@@ -524,7 +518,6 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                     # assume oldest
                                     i2 = i
                                 self.radius = i2*self.roseRadius/(samples-1) # TODO trap sample = 0 or 1
-                                print "%d %d" % (i2, self.radius)
                                 # TODO actually radius should be a functio of time, this will then cope with nones/gaps and short set of samples
                                 
                                 if (dir_vec[0][i] is None):
@@ -612,30 +605,32 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                         if line_style == "straight" :
                                             self.draw.line(vector, fill=linecolor, width=1)
                                         elif line_style == "radial" :
+                                            # We create a smooth curve between two adjacent points by joing them up with straight line segments covering 1 degree of arc
+                                            # TODO This is a repeated code block - put in function?
                                             ##print "%d %d" % (thisa, lasta)
                                             if (thisa - lasta)%360 <= 180 :
                                                 starta = lasta
                                                 enda = thisa
                                                 anglespan = (thisa - lasta)%360
-                                                dir = 1
+                                                dir = 1 # Clockwise
                                             else:
                                                 starta = thisa
                                                 enda = lasta
                                                 anglespan = (lasta - thisa)%360
-                                                dir = -1
+                                                dir = -1 # Anticlockwise
                                             a = 0
                                             while a < anglespan:
-                                                pointr = lastr + (self.radius - lastr)*a/anglespan
+                                                pointr = lastr + (self.radius - lastr)*a/anglespan # Calculate radius at this angle
+                                                # Calc (x,y) coor of this point
                                                 pointx = int(self.originX + pointr*math.sin(math.radians(lasta+(a*dir))) )
                                                 pointy = int(self.originY - pointr*math.cos(math.radians(lasta+(a*dir))) )
                                                 ##print "  %d %f %d %d" % (a, pointr, pointx, pointy)
                                                 vector = (int(lastx), int(lasty), int(pointx), int(pointy))
                                                 self.draw.line(vector, fill=linecolor, width=1) # Straight line
-                                                #self.draw.point((pointx, pointy),fill=linecolor) # Not needed now we are doing lines
                                                 lastx = pointx
                                                 lasty = pointy
                                                 a += 1
-                                            # Draw the last line
+                                            # and now Draw the last line
                                             vector = (int(lastx), int(lasty), int(self.originX + self.x), int(self.originY - self.y))
                                             self.draw.line(vector, fill=linecolor, width=1) # Draw the final line to end point
                                         else :
@@ -646,7 +641,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                         lasta = thisa
                                         lastr = self.radius
                     elif self.plot_type == "scatter":
-                        print line_color
+                        #print line_color
                         oldestred = int(oldest_color[2:4],16)
                         oldestgreen = int(oldest_color[4:6],16)
                         oldestblue = int(oldest_color[6:8],16)
@@ -654,9 +649,9 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                         newestgreen = int(newest_color[4:6],16)
                         newestblue = int(newest_color[6:8],16)
                         self.roseRadius =  self.roseMaxDiameter / 2
-                        print self.roseRadius
-                        print samples
-                        print self.maxSpeedRange
+                        #print self.roseRadius
+                        #print samples
+                        #print self.maxSpeedRange
                         for layer in range(2):
                             lastx = self.originX
                             lasty = self.originY
@@ -673,9 +668,9 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                     r = int((1.0-p) * oldestred + p * newestred + 0.5)
                                     g = int((1.0-p) * oldestgreen + p * newestgreen + 0.5)
                                     b = int((1.0-p) * oldestblue + p * newestblue + 0.5)
-                                    col = '#%02x%02x%02x' % (r, g, b)
+                                    fadedcolor = '#%02x%02x%02x' % (r, g, b)
                                     self.radius = (speed_vec[0][i]/self.maxSpeedRange)*self.roseRadius
-                                    #print "%d %s %f %f" % (i, col, self.radius, speed_vec[0][i])
+                                    #print "%d %s %f %f" % (i, fadedcolor, self.radius, speed_vec[0][i])
                                     self.y = self.radius*math.cos(math.radians(dir_vec[0][i]))
                                     self.x = self.radius*math.sin(math.radians(dir_vec[0][i]))
                                     # Size the bound box
@@ -703,19 +698,19 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                             int(self.originY - self.y))
                                     if layer == 1:
                                         if marker_style == "dot" :
-                                            self.draw.point(point, fill=col)   # Draw the point
+                                            self.draw.point(point, fill=fadedcolor)   # Draw the point
                                         elif marker_style == "circle" :
-                                            self.draw.ellipse(bbox, outline=col, fill=col)   # Draw the circle
+                                            self.draw.ellipse(bbox, outline=fadedcolor, fill=fadedcolor)   # Draw the circle
                                         elif marker_style == "cross" :
-                                            self.draw.line(horline, fill=col, width=1)   # Draw the cross
-                                            self.draw.line(verline, fill=col, width=1)   # Draw the cross
+                                            self.draw.line(horline, fill=fadedcolor, width=1)   # Draw the cross
+                                            self.draw.line(verline, fill=fadedcolor, width=1)   # Draw the cross
                                         else :
                                             #none
                                             pass
                                     else:
                                         # layer == 0 = background
                                         if line_color == "age" :
-                                            linecolor = col
+                                            linecolor = fadedcolor
                                         else :
                                             linecolor = line_color
                                         thisa = int(dir_vec[0][i])
@@ -725,6 +720,8 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                         elif line_style == "straight" :
                                             self.draw.line(vector, fill=linecolor, width=1)
                                         elif line_style == "radial" :
+                                            # We create a smooth curve between two adjacent points by joing them up with straight line segments covering 1 degree of arc
+                                            # TODO This is a repeated code block - put in function?
                                             ##print "%d %d" % (thisa, lasta)
                                             if (thisa - lasta)%360 <= 180 :
                                                 starta = lasta
@@ -748,7 +745,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                                 lastx = pointx
                                                 lasty = pointy
                                                 a += 1
-                                            # Draw the last line
+                                            #  and now Draw the last line
                                             vector = (int(lastx), int(lasty), int(self.originX + self.x), int(self.originY - self.y))
                                             self.draw.line(vector, fill=linecolor, width=1) # Draw the final line to end point
                                         else :
@@ -844,14 +841,12 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
             delta = 0.5
             d2 = 1
         # Loop through each circle and draw it
-        print bbMinRad
         i = 5
         while i > 0:
             bbox = (self.originX - bbMinRad * (i + delta),
                     self.originY - bbMinRad * (i + delta),
                     self.originX + bbMinRad * (i + delta),
                     self.originY + bbMinRad * (i + delta))
-            print bbox
             self.draw.ellipse(bbox,
                               outline=self.image_back_range_ring_color,
                               fill=self.image_back_circle_color)
@@ -942,7 +937,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                        petal colours in speedList[1].
             speedBin: 1D list to hold overal obs count for each speed range.
         """
-        # TODO this function actuall does more than just legend, best to split others out into
+        # TODO this function actually does more than just legend, may best to split others out into
         # their own function
         
         # set static values
