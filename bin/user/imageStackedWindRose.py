@@ -605,34 +605,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                         if line_style == "straight" :
                                             self.draw.line(vector, fill=linecolor, width=1)
                                         elif line_style == "radial" :
-                                            # We create a smooth curve between two adjacent points by joing them up with straight line segments covering 1 degree of arc
-                                            # TODO This is a repeated code block - put in function?
-                                            ##print "%d %d" % (thisa, lasta)
-                                            if (thisa - lasta)%360 <= 180 :
-                                                starta = lasta
-                                                enda = thisa
-                                                anglespan = (thisa - lasta)%360
-                                                dir = 1 # Clockwise
-                                            else:
-                                                starta = thisa
-                                                enda = lasta
-                                                anglespan = (lasta - thisa)%360
-                                                dir = -1 # Anticlockwise
-                                            a = 0
-                                            while a < anglespan:
-                                                pointr = lastr + (self.radius - lastr)*a/anglespan # Calculate radius at this angle
-                                                # Calc (x,y) coor of this point
-                                                pointx = int(self.originX + pointr*math.sin(math.radians(lasta+(a*dir))) )
-                                                pointy = int(self.originY - pointr*math.cos(math.radians(lasta+(a*dir))) )
-                                                ##print "  %d %f %d %d" % (a, pointr, pointx, pointy)
-                                                vector = (int(lastx), int(lasty), int(pointx), int(pointy))
-                                                self.draw.line(vector, fill=linecolor, width=1) # Straight line
-                                                lastx = pointx
-                                                lasty = pointy
-                                                a += 1
-                                            # and now Draw the last line
-                                            vector = (int(lastx), int(lasty), int(self.originX + self.x), int(self.originY - self.y))
-                                            self.draw.line(vector, fill=linecolor, width=1) # Draw the final line to end point
+                                            self.joinCurve(lasta, lastr, lastx, lasty, thisa, linecolor)
                                         else :
                                             # assume line_style == "none"
                                             pass
@@ -720,34 +693,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                         elif line_style == "straight" :
                                             self.draw.line(vector, fill=linecolor, width=1)
                                         elif line_style == "radial" :
-                                            # We create a smooth curve between two adjacent points by joing them up with straight line segments covering 1 degree of arc
-                                            # TODO This is a repeated code block - put in function?
-                                            ##print "%d %d" % (thisa, lasta)
-                                            if (thisa - lasta)%360 <= 180 :
-                                                starta = lasta
-                                                enda = thisa
-                                                anglespan = (thisa - lasta)%360
-                                                dir = 1
-                                            else:
-                                                starta = thisa
-                                                enda = lasta
-                                                anglespan = (lasta - thisa)%360
-                                                dir = -1
-                                            a = 0
-                                            while a < anglespan:
-                                                pointr = lastr + (self.radius - lastr)*a/anglespan
-                                                pointx = int(self.originX + pointr*math.sin(math.radians(lasta+(a*dir))) )
-                                                pointy = int(self.originY - pointr*math.cos(math.radians(lasta+(a*dir))) )
-                                                ##print "  %d %f %d %d" % (a, pointr, pointx, pointy)
-                                                vector = (int(lastx), int(lasty), int(pointx), int(pointy))
-                                                self.draw.line(vector, fill=linecolor, width=1) # Straight line
-                                                #self.draw.point((pointx, pointy),fill=linecolor) # Not needed now we are doing lines
-                                                lastx = pointx
-                                                lasty = pointy
-                                                a += 1
-                                            #  and now Draw the last line
-                                            vector = (int(lastx), int(lasty), int(self.originX + self.x), int(self.originY - self.y))
-                                            self.draw.line(vector, fill=linecolor, width=1) # Draw the final line to end point
+                                            self.joinCurve(lasta, lastr, lastx, lasty, thisa,linecolor)
                                         else :
                                             # assume none
                                             pass
@@ -1054,6 +1000,35 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                            fill=self.legend_font_color,
                            font=self.legendFont)
 
+    def joinCurve(self, lasta, lastr, lastx, lasty, thisa,linecolor):
+        """Join two points with a curve"""
+        # We create a smooth curve between two adjacent points by joing them up with straight line segments covering 1 degree of arc
+        ##print "%d %d" % (thisa, lasta)
+        if (thisa - lasta)%360 <= 180 :
+            starta = lasta
+            enda = thisa
+            anglespan = (thisa - lasta)%360
+            dir = 1
+        else:
+            starta = thisa
+            enda = lasta
+            anglespan = (lasta - thisa)%360
+            dir = -1
+        a = 0
+        while a < anglespan:
+            pointr = lastr + (self.radius - lastr)*a/anglespan
+            pointx = int(self.originX + pointr*math.sin(math.radians(lasta+(a*dir))) )
+            pointy = int(self.originY - pointr*math.cos(math.radians(lasta+(a*dir))) )
+            ##print "  %d %f %d %d" % (a, pointr, pointx, pointy)
+            vector = (int(lastx), int(lasty), int(pointx), int(pointy))
+            self.draw.line(vector, fill=linecolor, width=1) # Straight line
+            lastx = pointx
+            lasty = pointy
+            a += 1
+        #  and now Draw the last line segment
+        vector = (int(lastx), int(lasty), int(self.originX + self.x), int(self.originY - self.y))
+        self.draw.line(vector, fill=linecolor, width=1) # Draw the final line to end point
+    
     def skipThisPlot(self, img_file, plotname):
         """Determine whether the plot is to be skipped or not.
 
