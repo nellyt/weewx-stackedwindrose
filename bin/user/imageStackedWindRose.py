@@ -489,13 +489,6 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                     if self.plot_type == "spiral":
                         # Calculate which samples will fall on the circular axis marks
                         self.timeLabels = list((0, 0, 0, 0, 0, 0))   # List to hold ring labels, 0=centre, 5=outside
-                        # self.timeLabels[0] = 0
-                        # self.timeLabels[1] = int(round((samples-1)*1/5))
-                        # self.timeLabels[2] = int(round((samples-1)*2/5))
-                        # self.timeLabels[3] = int(round((samples-1)*3/5))
-                        # self.timeLabels[4] = int(round((samples-1)*4/5))
-                        # self.timeLabels[5] = (samples-1)
-                        # print self.timeLabels
                         self.timeLabels[0] = dt.fromtimestamp(time_vec_t_wd_stop[0][0]).strftime(axis_label).strip()
                         self.timeLabels[1] = dt.fromtimestamp(time_vec_t_wd_stop[0][int(round((samples-1)*1/5))]).strftime(axis_label).strip()
                         self.timeLabels[2] = dt.fromtimestamp(time_vec_t_wd_stop[0][int(round((samples-1)*2/5))]).strftime(axis_label).strip()
@@ -509,6 +502,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                     self.windRosePlotSetup()
                     if self.plot_type == "spiral":
                         self.roseRadius =  self.roseMaxDiameter / 2
+                        print self.roseRadius
                         print time_vec_t_wd_stop[0][0]
                         print dt.fromtimestamp(time_vec_t_wd_stop[0][0]).strftime("%H:%M").strip()
                         #print self.roseRadius
@@ -530,6 +524,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                     # assume oldest
                                     i2 = i
                                 self.radius = i2*self.roseRadius/(samples-1) # TODO trap sample = 0 or 1
+                                print "%d %d" % (i2, self.radius)
                                 # TODO actually radius should be a functio of time, this will then cope with nones/gaps and short set of samples
                                 
                                 if (dir_vec[0][i] is None):
@@ -836,10 +831,8 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
 
         # Draw speed circles
         if self.plot_type == "scatter" or self.plot_type == "spiral":
-            bbMinRad = self.roseMaxDiameter/10 # Calc distance between windrose
-                                           # range rings. Note that 'calm'
-                                           # bulleye is at centre of plot
-                                           # with diameter equal to bbMinRad
+            bbMinRad = self.roseMaxDiameter/10.0 # Calc distance between windrose
+                                           # range rings.
             delta = 0
             d2 = 0
         else :
@@ -847,15 +840,18 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                            # range rings. Note that 'calm'
                                            # bulleye is at centre of plot
                                            # with diameter equal to bbMinRad
+                                           # TODO may need 11.0 here also, I needed to make 10.0 for spiral/scatter to avoid integer rounding problems
             delta = 0.5
             d2 = 1
         # Loop through each circle and draw it
+        print bbMinRad
         i = 5
         while i > 0:
             bbox = (self.originX - bbMinRad * (i + delta),
                     self.originY - bbMinRad * (i + delta),
                     self.originX + bbMinRad * (i + delta),
                     self.originY + bbMinRad * (i + delta))
+            print bbox
             self.draw.ellipse(bbox,
                               outline=self.image_back_range_ring_color,
                               fill=self.image_back_circle_color)
@@ -1041,7 +1037,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
             if self.centre == "newest" :
                 t_stamp_text = "Newest in Center"
             else :
-                t_stamp_text = "Oldest in Center"
+                t_stamp_text = "Oldest in Center " + self.timeLabels[0]
             tWidth, tHeight = self.draw.textsize(t_stamp_text, font=self.labelFont)
             if self.t_stamp_loc != None:
                 if 'TOP' in self.t_stamp_loc:
