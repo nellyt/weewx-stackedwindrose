@@ -330,16 +330,17 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                         self.dirName = 'windDir'
                     elif self.obName == 'windGust':
                         self.dirName = 'windGustDir'
+                    elif self.obName == 'windrun':
+                        self.obName = 'windSpeed'
+                        self.dirName = 'windDir'
                     else:
                         self.obName == 'windSpeed'
                         self.dirName = 'windDir'
+                    print self.obName
                     # Get our data tuples for speed and direction.
-                    getSqlVectors_TS = TimeSpan(self.p_gen_ts - self.period + 1,
-                                                self.p_gen_ts)
-                    (_, time_vec_t_ws_stop, data_speed) = self.archive.getSqlVectors(getSqlVectors_TS,
-                                                                                     self.obName)
-                    (_, time_vec_t_wd_stop, dir_vec) = self.archive.getSqlVectors(getSqlVectors_TS,
-                                                                                  self.dirName)
+                    getSqlVectors_TS = TimeSpan(self.p_gen_ts - self.period + 1, self.p_gen_ts)
+                    (_, time_vec_t_ws_stop, data_speed) = self.archive.getSqlVectors(getSqlVectors_TS, self.obName)
+                    (_, time_vec_t_wd_stop, dir_vec) = self.archive.getSqlVectors(getSqlVectors_TS, self.dirName)
                     # Convert our speed values to the units we are going to
                     # use in our plot
                     speed_vec = self.converter.convert(data_speed)
@@ -498,8 +499,97 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
 
                     # Setup windrose plot. Plot circles, range rings, range
                     # labels, N-S and E-W centre lines and compass pont labels
-                    self.windRosePlotSetup()
-                    if self.plot_type == "spiral":
+                    if self.plot_type != "trail":
+                        self.windRosePlotSetup()
+                    if self.plot_type == "trail":
+                        print data_speed
+                        print speed_vec
+                        print dir_vec
+                        print time_vec_t_ws_stop
+                        
+                        self.maxvector_radius = 0
+                        self.roseRadius =  self.roseMaxDiameter / 2
+                        for layer in range(3):
+                            if layer == 1 :
+                                self.windRosePlotSetup()
+                            lastx = self.originX
+                            lasty = self.originY
+                            vector_x = 0
+                            vector_y = 0
+                            print "XXX"
+                            print self.maxvector_radius
+                            for i in range(0, samples):
+                                # Loop through each sample
+                                
+                                print speed_vec[0][i]
+                                print dir_vec[0][i]
+                                if (speed_vec[0][i] is None) or (dir_vec[0][i] is None) or (speed_vec[0][i] == 0.0):
+                                    continue
+                                if i == samples-1:
+                                    delta = time_vec_t_ws_stop[0][i] - time_vec_t_ws_stop[0][i-1]
+                                else:
+                                    delta = time_vec_t_ws_stop[0][i+1] - time_vec_t_ws_stop[0][i]
+                                print delta
+                                distance = speed_vec[0][i] * delta / (60.0*60.0) # answer in km (delta is in seconds)
+                                # Calculate new vector from centre for this point (km)
+                                vector_x = vector_x + distance*math.sin(math.radians((dir_vec[0][i]+180)%360))
+                                vector_y = vector_y + distance*math.cos(math.radians((dir_vec[0][i]+180)%360))
+                                print vector_x
+                                print vector_y
+                                
+                                if layer == 0:
+                                    vector_radius = math.sqrt(vector_x*vector_x  + vector_y*vector_y)
+                                    if vector_radius > self.maxvector_radius:
+                                        self.maxvector_radius = vector_radius
+                                else:
+                                    #lines
+                                    self.x = vector_x*self.roseRadius/self.maxvector_radius
+                                    self.y = vector_y*self.roseRadius/self.maxvector_radius
+                                    point = (int(self.originX + self.x),
+                                            int(self.originY - self.y))
+                                    bbox = (int(self.originX + self.x-1),
+                                            int(self.originY - self.y-1),
+                                            int(self.originX + self.x+1),
+                                            int(self.originY - self.y+1))
+                                    horline = (int(self.originX + self.x-1),
+                                            int(self.originY - self.y),
+                                            int(self.originX + self.x+1),
+                                            int(self.originY - self.y))
+                                    verline = (int(self.originX + self.x),
+                                            int(self.originY - self.y-1),
+                                            int(self.originX + self.x),
+                                            int(self.originY - self.y+1))
+                                    vector = (int(lastx),
+                                            int(lasty),
+                                            int(self.originX + self.x),
+                                            int(self.originY - self.y))
+                                    if layer == 2:
+                                        if marker_style == "dot" :
+                                            self.draw.point(point, fill=fadedcolor)   # Draw the point
+                                        elif marker_style == "circle" :
+                                            self.draw.ellipse(bbox, outline=fadedcolor, fill=fadedcolor)   # Draw the circle
+                                        elif marker_style == "cross" :
+                                            self.draw.line(horline, fill=fadedcolor, width=1)   # Draw the cross
+                                            self.draw.line(verline, fill=fadedcolor, width=1)   # Draw the cross
+                                        else :
+                                            #none
+                                            pass
+                                    elif layer == 1:
+                                        # layer == 1 = lines
+                                        thisa = int(dir_vec[0][i])
+                                        # option : straight, radial, spoke, none for scatter
+                                        if line_style == "straight" :
+                                            self.draw.line(vector, fill=linecolor, width=1)
+                                        elif line_style == "radial" :
+                                            self.joinCurve(lasta, lastr, lastx, lasty, thisa, linecolor)
+                                        else :
+                                            # assume none
+                                            pass
+                                        lastx = self.originX + self.x
+                                        lasty = self.originY - self.y
+
+                            
+                    elif self.plot_type == "spiral":
                         self.roseRadius =  self.roseMaxDiameter / 2
                         for layer in range(2):
                             lastx = self.originX
@@ -693,7 +783,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                         elif line_style == "straight" :
                                             self.draw.line(vector, fill=linecolor, width=1)
                                         elif line_style == "radial" :
-                                            self.joinCurve(lasta, lastr, lastx, lasty, thisa,linecolor)
+                                            self.joinCurve(lasta, lastr, lastx, lasty, thisa, linecolor)
                                         else :
                                             # assume none
                                             pass
@@ -773,7 +863,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
         """Draw circular plot background, rings, axes and labels."""
 
         # Draw speed circles
-        if self.plot_type == "scatter" or self.plot_type == "spiral":
+        if self.plot_type == "scatter" or self.plot_type == "spiral" or self.plot_type == "trail" :
             bbMinRad = self.roseMaxDiameter/10.0 # Calc distance between windrose
                                            # range rings.
             delta = 0
@@ -828,8 +918,9 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
         if self.plot_type == "scatter":
             labelInc = self.maxSpeedRange / 5  # Value increment between rings
         elif self.plot_type == "spiral":
-            #TODO this needs to be time !!!!
             labelInc = self.maxRingValue / 5  # Value increment between rings
+        elif self.plot_type == "trail":
+            labelInc = self.maxvector_radius / 5  # Value increment between rings
         else:
             # assume rose
             labelInc = self.maxRingValue / 5  # Value increment between rings
@@ -840,13 +931,15 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                 speedLabels[i - 1] = str(int(round(labelInc * i, 0))) + 'km/h'
             elif self.plot_type == "spiral":
                 speedLabels[i - 1] = self.timeLabels[i]
+            elif self.plot_type == "trail":
+                speedLabels[i - 1] = str(int(round(labelInc * i, 0))) + 'km'
             else:
                 # assume rose
                 speedLabels[i - 1] = str(int(round(labelInc * i * 100, 0))) + '%'
             i += 1
         # Calculate location of ring labels
         labelAngle = 7 * math.pi / 4 + int(self.labelDir / 4.0) * math.pi / 2
-        if self.plot_type == "scatter" or self.plot_type == "spiral":
+        if self.plot_type == "scatter" or self.plot_type == "spiral" or self.plot_type == "trail":
             labelOffsetX = int(round(self.roseMaxDiameter / 20 * math.cos(labelAngle), 0))
             labelOffsetY = int(round(self.roseMaxDiameter / 20 * math.sin(labelAngle), 0))
         else:
@@ -1000,7 +1093,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                            fill=self.legend_font_color,
                            font=self.legendFont)
 
-    def joinCurve(self, lasta, lastr, lastx, lasty, thisa,linecolor):
+    def joinCurve(self, lasta, lastr, lastx, lasty, thisa, linecolor):
         """Join two points with a curve"""
         # We create a smooth curve between two adjacent points by joing them up with straight line segments covering 1 degree of arc
         ##print "%d %d" % (thisa, lasta)
