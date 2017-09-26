@@ -15,6 +15,9 @@ and a Wind Spiral
 and a Wind Scatter
 ![Sample Wind Scatter plot](daywindscatter.png)
 
+and a Wind Trail
+![Sample Wind Trail plot](weekwindtrail.png)
+
 ## Pre-Requisites
 
 Weewx v3.2.0 or greater.
