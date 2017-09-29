@@ -184,10 +184,8 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
         ngen = 0
         # Loop over each time span class (day, week, month, etc.):
         for span in self.image_dict.sections:
-            #print span
             # Now, loop over all plot names in this time span class:
             for plot in self.image_dict[span].sections:
-                #print plot
                 # Accumulate all options from parent nodes:
                 print " %s %s" % (span, plot)
                 p_options = accumulateLeaves(self.image_dict[span][plot])
@@ -210,13 +208,12 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                     format = p_options['format']
                 else:
                     format = "png"
-                 # Get plot style, options : rose, spiral, scatter
+                # Get plot style, options : rose, spiral, scatter
                 # Default to rose
                 if p_options.has_key('plot_type'):
                     self.plot_type = p_options['plot_type']
                 else:
                     self.plot_type = "rose"
-                #print self.plot_type
                 # Get legend enable, options : true, false
                 # Default to true for rose and spiral, false for scatter
                 if p_options.has_key('legend'):
@@ -519,13 +516,8 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                     # Setup windrose plot. Plot circles, range rings, range
                     # labels, N-S and E-W centre lines and compass pont labels
                     if self.plot_type != "trail":
-                        self.windRosePlotSetup()
+                        self.windRosePlotSetup() # We cant call this straight away for trails, we have to make a pass through the data first
                     if self.plot_type == "trail":
-                        #print data_speed
-                        #print speed_vec
-                        #print dir_vec
-                        #print time_vec_t_ws_stop
-                        
                         self.maxvector_radius = 0
                         self.roseRadius =  self.roseMaxDiameter / 2
                         for layer in range(3):
@@ -535,13 +527,9 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                             lasty = self.originY
                             vector_x = 0
                             vector_y = 0
-                            #print "XXX"
-                            #print self.maxvector_radius
                             for i in range(0, samples):
                                 # Loop through each sample
                                 
-                                #print speed_vec[0][i]
-                                #print dir_vec[0][i]
                                 if (speed_vec[0][i] is None) or (dir_vec[0][i] is None) or (speed_vec[0][i] == 0.0):
                                     continue
                                 if i == samples-1:
@@ -554,8 +542,6 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                 # Calculate new vector from centre for this point (km)
                                 vector_x = vector_x + distance*math.sin(math.radians((dir_vec[0][i]+180)%360))
                                 vector_y = vector_y + distance*math.cos(math.radians((dir_vec[0][i]+180)%360))
-                                #print vector_x
-                                #print vector_y
                                 
                                 if layer == 0:
                                     # First pass thtough data to find maximum distance from origin
@@ -683,7 +669,6 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                     continue
                                 else:
                                     thisa = int(dir_vec[0][i])
-                                    ##print "%d %f %f" % (i, self.radius, dir_vec[0][i])
                                     self.y = self.radius*math.cos(math.radians(dir_vec[0][i]))
                                     self.x = self.radius*math.sin(math.radians(dir_vec[0][i]))
                                     if i == 0:
@@ -781,9 +766,6 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                         newestgreen = int(newest_color[4:6],16)
                         newestblue = int(newest_color[6:8],16)
                         self.roseRadius =  self.roseMaxDiameter / 2
-                        #print self.roseRadius
-                        #print samples
-                        #print self.maxSpeedRange
                         for layer in range(2):
                             lastx = self.originX
                             lasty = self.originY
