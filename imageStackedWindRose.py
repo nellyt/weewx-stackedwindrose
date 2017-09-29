@@ -235,7 +235,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                     marker_style = p_options['marker_style']
                 else:
                     marker_style = "circle"
-                # Get line_style, 
+                # Get line_style,
                 # options : straight, radial, none for spiral, default radial
                 # option : straight, radial, spoke, none for scatter, default none
                 # Default to radial
@@ -246,7 +246,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                         line_style = "radial"
                     else :
                         line_style = "none"
-                # Get line_color, 
+                # Get line_color,
                 # options : speed, hex color
                 # options : age, hex color
                 # Default to speed
@@ -489,7 +489,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                     self.roseMaxDiameter = min(int((self.image_height - 2 * self.plot_border - labelHeight / 2) / 22.0) * 22,
                                                int((self.image_width - (2 * self.plot_border + legendWidth)) / 22.0) * 22)
                                                # TODO Alternatively set legend to false to keep common
-                                               # TODO Scatter has legendwidth removed in above 
+                                               # TODO Scatter has legendwidth removed in above
                     if self.image_width > self.image_height:    # If wider than height
                         textWidth, textHeight = self.draw.textsize("W",
                                                                    font=self.plotFont)
@@ -502,7 +502,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                         self.originX = 2 * self.plot_border + self.roseMaxDiameter / 2
                         # y coord of windrose circle origin(0,0) is top left corner
                         self.originY = 2 * self.plot_border + self.roseMaxDiameter / 2
-                    
+
                     if self.plot_type == "spiral":
                         # Calculate which samples will fall on the circular axis marks and extract their timestamps
                         self.timeLabels = list((0, 0, 0, 0, 0, 0))   # List to hold ring labels, 0=centre, 5=outside
@@ -529,7 +529,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                             vector_y = 0
                             for i in range(0, samples):
                                 # Loop through each sample
-                                
+
                                 if (speed_vec[0][i] is None) or (dir_vec[0][i] is None) or (speed_vec[0][i] == 0.0):
                                     continue
                                 if i == samples-1:
@@ -542,7 +542,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                 # Calculate new vector from centre for this point (km)
                                 vector_x = vector_x + distance*math.sin(math.radians((dir_vec[0][i]+180)%360))
                                 vector_y = vector_y + distance*math.cos(math.radians((dir_vec[0][i]+180)%360))
-                                
+
                                 if layer == 0:
                                     # First pass thtough data to find maximum distance from origin
                                     vector_radius = math.sqrt(vector_x*vector_x  + vector_y*vector_y)
@@ -573,7 +573,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                     if layer == 2:
                                         # Do Dots/marks
                                         # TODO next bit deciding colour is duplicated code, push to function
-                                        if marker_color == "speed" : 
+                                        if marker_color == "speed" :
                                             # Makes lines function of speed
                                             #print "  %f" % (speed_vec[0][i])
                                             if (speed_vec[0][i] is None or speed_vec[0][i] == 0):
@@ -608,7 +608,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                         # Do lines
                                         thisa = int(dir_vec[0][i])
                                         # TODO next bit deciding colour is duplicated code, push to function
-                                        if line_color == "speed" : 
+                                        if line_color == "speed" :
                                             # Makes lines function of speed
                                             #print "  %f" % (speed_vec[0][i])
                                             if (speed_vec[0][i] is None or speed_vec[0][i] == 0):
@@ -643,7 +643,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                 int(self.originY - self.y))
                         if vector_color != "none" :
                             self.draw.line(vector, fill=vector_color, width=1)
-                            
+
                     elif self.plot_type == "spiral":
                         self.roseRadius =  self.roseMaxDiameter / 2
                         for layer in range(2):
@@ -657,14 +657,14 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                 # Note assumes equal time periods for each sample
                                 # samples is the number of observations
                                 # self.period is the time period in seconds, which we dont actually need
-                                if self.centre == "newest" : 
+                                if self.centre == "newest" :
                                     i2 = samples - 1 - i
                                 else :
                                     # assume oldest
                                     i2 = i
                                 self.radius = i2*self.roseRadius/(samples-1) # TODO trap sample = 0 or 1
                                 # TODO actually radius should be a functio of time, this will then cope with nones/gaps and short set of samples
-                                
+
                                 if (dir_vec[0][i] is None):
                                     continue
                                 else:
@@ -696,11 +696,11 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                             int(lasty),
                                             int(self.originX + self.x),
                                             int(self.originY - self.y))
-                                    
+
                                     if layer == 1:
                                         # Do Markers
                                         # Decide if markers are line colour or marker colour
-                                        if marker_color == "speed" : 
+                                        if marker_color == "speed" :
                                             # Makes lines function of speed
                                             #print "  %f" % (speed_vec[0][i])
                                             if (speed_vec[0][i] is None or speed_vec[0][i] == 0):
@@ -729,7 +729,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                             pass
                                     else:
                                         # Layer 0, which is the lines between dots
-                                        if line_color == "speed" : 
+                                        if line_color == "speed" :
                                             # Makes lines function of speed
                                             #print "  %f" % (speed_vec[0][i])
                                             if (speed_vec[0][i] is None or speed_vec[0][i] == 0):
@@ -759,6 +759,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                                         lastr = self.radius
                     elif self.plot_type == "scatter":
                         #print line_color
+                        # TODO Have I got RBG instrad of GBR ?
                         oldestred = int(oldest_color[2:4],16)
                         oldestgreen = int(oldest_color[4:6],16)
                         oldestblue = int(oldest_color[6:8],16)
@@ -920,6 +921,7 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
             delta = 0
             d2 = 0
         else :
+            # a Windrose
             bbMinRad = self.roseMaxDiameter/11 # Calc distance between windrose
                                            # range rings. Note that 'calm'
                                            # bulleye is at centre of plot
@@ -1027,9 +1029,8 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
                        petal colours in speedList[1].
             speedBin: 1D list to hold overal obs count for each speed range.
         """
-        # TODO this function actually does more than just legend, may best to split others out into
-        # their own function
-        
+        # TODO this function actually does more than just legend, may best to split others out into their own function
+
         # set static values
         tWidth, tHeight = self.draw.textsize('E', font=self.plotFont)
         if self.legend == "true" :
@@ -1147,32 +1148,31 @@ class ImageStackedWindRoseGenerator(weewx.reportengine.ReportGenerator):
     def joinCurve(self, lasta, lastr, lastx, lasty, thisa, linecolor):
         """Join two points with a curve"""
         # We create a smooth curve between two adjacent points by joing them up with straight line segments covering 1 degree of arc
-        ##print "%d %d" % (thisa, lasta)
         if (thisa - lasta)%360 <= 180 :
             starta = lasta
             enda = thisa
-            anglespan = (thisa - lasta)%360
+            #anglespan = (thisa - lasta)%360
             dir = 1
         else:
             starta = thisa
             enda = lasta
-            anglespan = (lasta - thisa)%360
+            #anglespan = (lasta - thisa)%360
             dir = -1
+        anglespan = (enda - starta)%360
         a = 0
         while a < anglespan:
             pointr = lastr + (self.radius - lastr)*a/anglespan
             pointx = int(self.originX + pointr*math.sin(math.radians(lasta+(a*dir))) )
             pointy = int(self.originY - pointr*math.cos(math.radians(lasta+(a*dir))) )
-            ##print "  %d %f %d %d" % (a, pointr, pointx, pointy)
             vector = (int(lastx), int(lasty), int(pointx), int(pointy))
             self.draw.line(vector, fill=linecolor, width=1) # Straight line
             lastx = pointx
             lasty = pointy
             a += 1
-        #  and now Draw the last line segment
+        #  and now Draw the last line segment to end point
         vector = (int(lastx), int(lasty), int(self.originX + self.x), int(self.originY - self.y))
-        self.draw.line(vector, fill=linecolor, width=1) # Draw the final line to end point
-    
+        self.draw.line(vector, fill=linecolor, width=1)
+
     def skipThisPlot(self, img_file, plotname):
         """Determine whether the plot is to be skipped or not.
 
